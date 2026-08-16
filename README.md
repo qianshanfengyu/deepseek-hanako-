@@ -72,7 +72,7 @@ deepseek-hanako-/
 ├── assets/                         素材
 │   ├── whale-spritesheet.png       精灵图（9 个单帧动作）
 │   ├── voice-1.mp3 ~ voice-5.mp3   完工语音（佳代子日文 TTS）
-│   └── voice.mp3 / voice-complete.wav  备用音效
+│   └── voice-complete.wav  备用音效
 ├── hana-bridge/                    可选：Hana 平台联动插件
 ├── docs/                           文档
 └── release/                        交付包（鲸鱼娘桌宠-溟月）
