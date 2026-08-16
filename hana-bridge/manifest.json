@@ -1,0 +1,14 @@
+{
+  "manifestVersion": 1,
+  "id": "whale-pet-bridge",
+  "name": "溟月桥接",
+  "version": "0.1.0",
+  "description": "订阅 Hana 事件总线，将佳代子的真实工作状态（思考 / 工具执行 / 失败 / 完成）自动映射为桌宠动画，经 HTTP 127.0.0.1:8999 驱动鲸鱼娘「溟月」。桌宠本体保持独立 Electron 进程，本插件只做事件订阅与转发，不管理桌宠进程。",
+  "author": "佳代子",
+  "minAppVersion": "0.159.0",
+  "trust": "full-access",
+  "activationEvents": [
+    "onStartup"
+  ],
+  "entry": "index.js"
+}

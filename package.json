@@ -1,0 +1,25 @@
+{
+  "name": "deepseek-hanako-pet",
+  "version": "1.0.0",
+  "private": false,
+  "description": "deepseek 娘桌宠（鲸鱼娘 · 溟月）—— 常驻 Windows 桌面右下角的 Electron 桌宠，随 AI 助手工作状态切换动画，任务完成时撒花并播报完工语音",
+  "keywords": [
+    "deepseek",
+    "electron",
+    "desktop-pet",
+    "桌宠"
+  ],
+  "license": "MIT",
+  "author": "qianshanfengyu",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qianshanfengyu/deepseek-hanako-.git"
+  },
+  "files": [
+    "electron",
+    "assets",
+    "docs",
+    "hana-bridge",
+    "release"
+  ]
+}

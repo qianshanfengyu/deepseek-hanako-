@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+*.log
+
+# 内部开发草稿与临时备份（不公开）
+DEV-NOTES.md
+TASK-fix-client-js.md
+assets/backup-wav-20260816/

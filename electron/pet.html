@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>鲸鱼娘桌宠</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .pet {
+    position: absolute;
+    right: 18px;
+    bottom: 10px;
+    width: 163.2px;   /* 192 × 0.85 */
+    height: 176.8px;  /* 208 × 0.85 */
+    cursor: grab;
+    touch-action: none;
+  }
+  .pet:active { cursor: grabbing; }
+  .pet .sprite {
+    position: absolute;
+    inset: 0;
+    background-image: url('/spritesheet.png');
+    background-repeat: no-repeat;
+    background-size: 1305.6px 1591.2px; /* W×8, H×9 */
+    image-rendering: pixelated;
+    transform-origin: 50% 92%;  /* 以脚底为轴 */
+    will-change: transform;
+  }
+  .pet .shadow {
+    position: absolute;
+    left: 50%;
+    bottom: -7px;
+    width: 74px;
+    height: 13px;
+    margin-left: -37px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,.4) 0%, rgba(0,0,0,0) 72%);
+    opacity: .5;
+    pointer-events: none;
+  }
+  .pet .bubble {
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    margin-bottom: 12px;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.96);
+    color: #333;
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    animation: bubblePop .22s ease-out;
+  }
+  .pet .bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 7px solid transparent;
+    border-top-color: rgba(255, 255, 255, 0.96);
+  }
+  /* 思考点点：三个点依次浮现 */
+  .dots {
+    display: none;
+    inline-flex: none;
+    margin-left: 3px;
+    vertical-align: 1px;
+  }
+  .dots.show { display: inline; }
+  .dots i {
+    display: inline-block;
+    width: 4px; height: 4px;
+    margin: 0 1.5px;
+    border-radius: 50%;
+    background: #5a7;
+    opacity: .2;
+    animation: dotBlink 1.5s infinite;
+  }
+  .dots i:nth-child(2) { animation-delay: .25s; }
+  .dots i:nth-child(3) { animation-delay: .5s; }
+  @keyframes dotBlink { 0%, 60%, 100% { opacity: .18; } 30% { opacity: 1; } }
+
+  /* ============ 状态动效 ============ */
+
+  /* 待机：漂浮 + 呼吸 */
+  .pet.m-idle .sprite { animation: idleBob 3.4s ease-in-out infinite; }
+  .pet.m-idle .shadow { animation: shadowFloat 3.4s ease-in-out infinite; }
+
+  /* 干活：打字顿挫（哒、哒、哒…停），前倾小顿 */
+  .pet.m-working .sprite { animation: workType 1.15s ease-in-out infinite; }
+  .pet.m-working .shadow { animation: shadowPulse 1.15s ease-in-out infinite; }
+
+  /* 思考：大幅缓慢左右倾（配气泡点点） */
+  .pet.m-review .sprite { animation: ponderBig 4.4s ease-in-out infinite; }
+  .pet.m-review .shadow { animation: shadowFloat 4.4s ease-in-out infinite; }
+
+  /* 等待：期待小跳 */
+  .pet.m-waiting .sprite { animation: waitHop 1.7s ease-in-out infinite; }
+  .pet.m-waiting .shadow { animation: shadowHop 1.7s ease-in-out infinite; }
+
+  /* 出错：泄气下沉（一次性，停在末帧） */
+  .pet.m-failed .sprite { animation: droop 2.6s ease-in-out forwards; }
+  .pet.m-failed .shadow { animation: shadowDroop 2.6s ease-in-out forwards; }
+
+  /* 庆祝：节奏全由 JS WAAPI 驱动（弹性跳 + 摇摆 + 撒花），无 CSS 循环 */
+  .pet.m-celebrating .shadow { animation: shadowFloat 2.6s ease-in-out infinite; }
+
+  /* 被拖拽：挣扎小跑抖动 */
+  .pet.dragging .sprite { animation: runBob .26s linear infinite; }
+  .pet.dragging .shadow { animation: none; }
+
+  @keyframes idleBob {
+    0%, 100% { transform: translateY(0) scaleY(1); }
+    50%      { transform: translateY(-4px) scaleY(1.014); }
+  }
+  @keyframes workType {
+    0%   { transform: translateY(0) rotate(0deg); }
+    6%   { transform: translateY(-2.6px) rotate(1.5deg); }
+    12%  { transform: translateY(-.6px)  rotate(.5deg); }
+    18%  { transform: translateY(-2.4px) rotate(1.3deg); }
+    24%  { transform: translateY(-.5px)  rotate(.4deg); }
+    30%  { transform: translateY(-2px)   rotate(1.1deg); }
+    38%, 100% { transform: translateY(0) rotate(0deg); }
+  }
+  @keyframes ponderBig {
+    0%, 100% { transform: translateY(0) rotate(-3.4deg); }
+    50%      { transform: translateY(-3.5px) rotate(3.4deg); }
+  }
+  @keyframes waitHop {
+    0%, 62%, 100% { transform: translateY(0); }
+    74%           { transform: translateY(-6px); }
+    86%           { transform: translateY(-1px); }
+  }
+  @keyframes droop {
+    0%   { transform: translateY(-2px) scale(1); }
+    100% { transform: translateY(3px) scale(.982) rotate(1.6deg); }
+  }
+  @keyframes runBob {
+    0%, 100% { transform: translateY(0) rotate(-1.2deg); }
+    50%      { transform: translateY(-2.2px) rotate(1.2deg); }
+  }
+  @keyframes shadowFloat {
+    0%, 100% { transform: scaleX(1);  opacity: .5; }
+    50%      { transform: scaleX(.9); opacity: .36; }
+  }
+  @keyframes shadowPulse {
+    0%, 38%, 100% { transform: scaleX(1); }
+    10%, 24%      { transform: scaleX(.95); }
+  }
+  @keyframes shadowHop {
+    0%, 62%, 100% { transform: scaleX(1); }
+    74%           { transform: scaleX(.82); }
+    86%           { transform: scaleX(.96); }
+  }
+  @keyframes shadowDroop {
+    0%   { transform: scaleX(1);  opacity: .5; }
+    100% { transform: scaleX(.95); opacity: .34; }
+  }
+  @keyframes bubblePop {
+    from { transform: translateX(-50%) scale(.86); opacity: .4; }
+    to   { transform: translateX(-50%) scale(1);   opacity: 1; }
+  }
+</style>
+</head>
+<body>
+  <div class="pet" id="pet" title="deepseek娘 · 拖动移动">
+    <div class="bubble" id="bubble"><span id="bubbleText">休息中~ 有事叫我</span><span class="dots" id="dots"><i></i><i></i><i></i></span></div>
+    <div class="shadow" id="shadow"></div>
+    <div class="sprite" id="sprite"></div>
+  </div>
+
+<script>
+  // —— 精灵图契约（素材为 9 个单帧动作，排在画布左侧一列）——
+  const CW = 192, CH = 208, SCALE = 0.85
+  const W = CW * SCALE, H = CH * SCALE
+
+  const ROWS = {
+    idle:     { row: 0 },
+    runRight: { row: 1 },
+    runLeft:  { row: 2 },
+    wave:     { row: 3 },
+    jump:     { row: 4 },
+    failed:   { row: 5 },
+    waiting:  { row: 6 },
+    working:  { row: 7 },
+    review:   { row: 8 },
+  }
+
+  const MODE_ANIM = {
+    idle: 'idle',
+    working: 'working',
+    review: 'review',
+    waiting: 'waiting',
+    failed: 'failed',
+    celebrating: 'wave',
+  }
+
+  const BUBBLES = {
+    idle: '休息中~ 有事叫我',
+    working: '努力工作中…',
+    review: '唔…让我想想',
+    waiting: '在等你回复哦~',
+    failed: '呜…出错了 (._.)',
+    celebrating: '完成啦！',
+  }
+
+  // 完工语音：碧蓝档案 佳代子（TTS-Online 生成），每次随机一句
+  const VOICES = ['/voice-1.mp3', '/voice-2.mp3', '/voice-3.mp3', '/voice-4.mp3', '/voice-5.mp3']
+
+  const pet = document.getElementById('pet')
+  const sprite = document.getElementById('sprite')
+  const shadow = document.getElementById('shadow')
+  const bubble = document.getElementById('bubble')
+  const bubbleText = document.getElementById('bubbleText')
+  const dotsEl = document.getElementById('dots')
+
+  let currentMode = null
+  let currentAnim = null
+  let celebrateTimer = null
+  let clickTimer = null
+  let idleTrickTimer = null
+  let drag = null
+  let audioEl = null
+
+  function setAnim(anim) {
+    if (anim === currentAnim) return
+    currentAnim = anim
+    const spec = ROWS[anim] || ROWS.idle
+    sprite.style.backgroundPosition = '0px ' + (-spec.row * H) + 'px'
+  }
+
+  function setBubble(text, withDots) {
+    bubbleText.textContent = text
+    dotsEl.classList.toggle('show', !!withDots)
+    bubble.style.animation = 'none'
+    void bubble.offsetWidth  // 强制 reflow，重新触发 pop
+    bubble.style.animation = ''
+  }
+
+  function setModeClass(m) {
+    pet.className = 'pet m-' + m + (drag ? ' dragging' : '')
+  }
+
+  // —— 撒花：从头顶扇形抛出彩色碎屑 ——
+  function confetti(n) {
+    const colors = ['#ff8fb1', '#8fd2ff', '#ffe38f', '#a5f0c0', '#d5b3ff', '#ffb37a']
+    const pr = pet.getBoundingClientRect()
+    const ox = pr.left + pr.width * 0.5
+    const oy = pr.top + 24
+    for (let i = 0; i < n; i++) {
+      const el = document.createElement('div')
+      const size = 4 + Math.random() * 4.5
+      el.style.cssText =
+        'position:absolute;left:' + ox + 'px;top:' + oy + 'px;' +
+        'width:' + size + 'px;height:' + (size * (Math.random() > .5 ? 1 : .6)) + 'px;' +
+        'background:' + colors[i % colors.length] + ';' +
+        'border-radius:' + (Math.random() > .5 ? '50%' : '2px') + ';' +
+        'pointer-events:none;z-index:9;'
+      document.body.appendChild(el)
+      const ang = -Math.PI / 2 + (Math.random() - .5) * 1.9   // 向上扇形 ±55°
+      const v = 55 + Math.random() * 50
+      const dx = Math.cos(ang) * v
+      const dy = Math.sin(ang) * v + 62 + Math.random() * 26    // 带下坠
+      el.animate(
+        [
+          { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+          { transform: 'translate(' + dx + 'px,' + dy + 'px) rotate(' + ((Math.random() - .5) * 540) + 'deg)', opacity: 0 },
+        ],
+        { duration: 850 + Math.random() * 500, easing: 'cubic-bezier(.2,.5,.6,1)' }
+      ).onfinish = () => el.remove()
+    }
+  }
+
+  // —— 庆祝：弹性跳（蓄力拉伸→腾空→落地压扁）+ 摇摆 + 撒花 + 轮换语音 ——
+  function jumpOnce() {
+    sprite.animate(
+      [
+        { transform: 'translateY(0) scale(1,1)' },
+        { transform: 'translateY(-4px) scale(.95,1.06)', offset: .16 },   // 蓄力
+        { transform: 'translateY(-22px) scale(.96,1.05)', offset: .5 },   // 腾空
+        { transform: 'translateY(0) scale(1.1,.88)', offset: .84 },       // 落地压扁
+        { transform: 'translateY(0) scale(1,1)' },
+      ],
+      { duration: 660, easing: 'cubic-bezier(.3,.6,.4,1)' }
+    )
+    shadow.animate(
+      [
+        { transform: 'scaleX(1)', opacity: .5 },
+        { transform: 'scaleX(.6)', opacity: .2, offset: .5 },
+        { transform: 'scaleX(1.06)', opacity: .56, offset: .84 },
+        { transform: 'scaleX(1)', opacity: .5 },
+      ],
+      { duration: 660 }
+    )
+  }
+
+  function rockOnce() {
+    sprite.animate(
+      [
+        { transform: 'rotate(0deg) translateY(0)' },
+        { transform: 'rotate(-5deg) translateY(-3px)', offset: .3 },
+        { transform: 'rotate(4deg) translateY(-1px)', offset: .68 },
+        { transform: 'rotate(0deg) translateY(0)' },
+      ],
+      { duration: 880, easing: 'ease-in-out' }
+    )
+  }
+
+  function startCelebrating() {
+    // 轮换语音：每次随机一句
+    if (!audioEl) audioEl = new Audio()
+    audioEl.src = VOICES[Math.floor(Math.random() * VOICES.length)]
+    audioEl.volume = 1.0
+    audioEl.currentTime = 0
+    audioEl.play().catch(() => {})
+    confetti(16)
+    if (celebrateTimer) { clearTimeout(celebrateTimer); celebrateTimer = null }
+    let beatCount = 0
+    const beat = () => {
+      beatCount++
+      const isJump = beatCount % 2 === 1
+      setAnim(isJump ? 'jump' : 'wave')
+      if (isJump) {
+        jumpOnce()
+        if (beatCount % 4 === 1) confetti(9)   // 每两轮补一波小花
+        celebrateTimer = setTimeout(beat, 700)
+      } else {
+        rockOnce()
+        celebrateTimer = setTimeout(beat, 940)
+      }
+    }
+    beat()
+  }
+
+  function stopCelebrating() {
+    if (celebrateTimer) { clearTimeout(celebrateTimer); celebrateTimer = null }
+  }
+
+  function applyMode(mode) {
+    if (mode === currentMode) return
+    currentMode = mode
+    setModeClass(mode)
+    if (mode === 'celebrating') {
+      setBubble(BUBBLES.celebrating)
+      startCelebrating()
+    } else {
+      stopCelebrating()
+      setAnim(MODE_ANIM[mode] || 'idle')
+      setBubble(BUBBLES[mode] || BUBBLES.idle, mode === 'review')
+    }
+  }
+
+  // —— 状态同步：IPC 即时推送优先，轮询兜底 ——
+  if (window.petEvents) {
+    window.petEvents.onMode((m) => { if (m) applyMode(String(m)) })
+  }
+
+  async function sync() {
+    try {
+      const resp = await fetch('/jiadaizi-pet/state')
+      const s = await resp.json()
+      if (s && s.mode) applyMode(String(s.mode))
+    } catch (e) {
+      // 瞬时网络错误，下一轮重试
+    }
+  }
+
+  // —— 待机随机小动作：每 14~30 秒自己动一下（只留轻的，不蹦跳）——
+  const IDLE_TRICKS = [
+    () => { setAnim('wave');  return '（哼着小曲挥了挥手）' },
+    () => { setAnim('review'); return '（歪着头在想事情）' },
+    () => { setAnim('waiting'); return '（眼巴巴地看着你）' },
+    () => {
+      setAnim('runRight')
+      setTimeout(() => { if (currentAnim === 'runRight' && !drag) setAnim('runLeft') }, 900)
+      return '（左看看右看看）'
+    },
+  ]
+
+  function scheduleIdleTrick() {
+    if (idleTrickTimer) clearTimeout(idleTrickTimer)
+    idleTrickTimer = setTimeout(() => {
+      if (currentMode === 'idle' && !drag && !celebrateTimer) {
+        const trick = IDLE_TRICKS[Math.floor(Math.random() * IDLE_TRICKS.length)]
+        setBubble(trick(), currentAnim === 'review')
+        setTimeout(() => {
+          if (currentMode === 'idle' && !drag && !celebrateTimer) {
+            setAnim('idle')
+            setBubble(BUBBLES.idle)
+          }
+        }, 2400)
+      }
+      scheduleIdleTrick()
+    }, 14000 + Math.random() * 16000)
+  }
+
+  // —— 入场：从小放大淡入 ——
+  pet.animate(
+    [
+      { transform: 'translateY(14px) scale(.9)', opacity: 0 },
+      { transform: 'translateY(0) scale(1)',     opacity: 1 },
+    ],
+    { duration: 420, easing: 'cubic-bezier(.2,.8,.3,1)' }
+  )
+
+  applyMode('idle')
+  scheduleIdleTrick()
+  sync()
+  setInterval(sync, 2000)   // IPC 优先，轮询只做兜底对时
+
+  // —— 拖动（切跑步动画 + 移动窗口）与点击（挥手互动）——
+  function restoreAnim() {
+    setAnim(MODE_ANIM[currentMode] || 'idle')
+    setBubble(BUBBLES[currentMode] || BUBBLES.idle, currentMode === 'review')
+  }
+
+  pet.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return
+    drag = { x: e.screenX, y: e.screenY, moved: false }
+    try { pet.setPointerCapture(e.pointerId) } catch (err) { /* ignore */ }
+  })
+
+  pet.addEventListener('pointermove', (e) => {
+    if (!drag) return
+    const dx = e.screenX - drag.x
+    const dy = e.screenY - drag.y
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) drag.moved = true
+    if (drag.moved) {
+      pet.classList.add('dragging')
+      if (dx > 3) setAnim('runRight')
+      else if (dx < -3) setAnim('runLeft')
+      if (bubbleText.textContent !== '呜哇~ 别拽我！') setBubble('呜哇~ 别拽我！')
+    }
+    if (window.petDrag) window.petDrag.move(dx, dy)
+    drag.x = e.screenX
+    drag.y = e.screenY
+  })
+
+  const endDrag = () => {
+    const d = drag
+    drag = null
+    pet.classList.remove('dragging')
+    if (d && !d.moved) {
+      setAnim('wave')
+      rockOnce()
+      setBubble('诶嘿~')
+      if (clickTimer) clearTimeout(clickTimer)
+      clickTimer = setTimeout(restoreAnim, 2400)
+    } else {
+      restoreAnim()
+    }
+  }
+  pet.addEventListener('pointerup', endDrag)
+  pet.addEventListener('pointercancel', endDrag)
+</script>
+</body>
+</html>
