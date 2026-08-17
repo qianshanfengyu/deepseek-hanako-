@@ -304,10 +304,13 @@ export function createBridge(cfg) {
     if (type === 'tool_execution_start') round.hasWork = true
     if (type === 'turn_end') {
       apply('idle', 'turn_end')
+      // 兑底触发：agent_end 时有时无，turn_end 也启动静默窗口。
+      // 工具间隙的 turn_end 会被随后的 turn_start（续期）或新活动（HARD_CANCEL）拦下，
+      // 只有真正的整轮结束（静默 2s 无活动）才庆祝。
+      tryCelebrate()
       return
     }
-    // 对话彻底结束才启动完工庆祝：agent_end 是「回合真正结束」的信号。
-    // 工具间隙的 turn_end/turn_start 不代表结束，不触发庆祝判定（否则每轮工具间隙都乱响）。
+    // agent_end 是「回合真正结束」的强信号，直接确认（内部会重启静默窗口）
     if (type === 'agent_end') {
       tryCelebrate()
       return
