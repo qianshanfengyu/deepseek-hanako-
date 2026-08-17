@@ -218,7 +218,7 @@ const SOFT_RESET = ['turn_start']
 // 创建桥接实例（闭包持有状态，生命周期跟随插件 onload/onunload）
 export function createBridge(cfg) {
   const st = { current: 'idle', lastCelebrationAt: 0 }
-  const round = { hasWork: false, hasError: false }
+  const round = { hasWork: false, errCount: 0, okCount: 0 }
   let watchdog = null
   let failedTimer = null
   let silenceTimer = null
@@ -269,7 +269,8 @@ export function createBridge(cfg) {
     clearTimeout(silenceTimer)
     silenceTimer = setTimeout(() => {
       const t = Date.now()
-      if (round.hasError) { logLine('turn_end: round had error, no celebrate'); apply('idle', 'round had error'); return }
+      // 容错：一次工具错误不整轮沉默，错误数 ≥ 成功数（这轮基本没干成）才不庆祝
+      if (round.errCount > 0 && round.errCount >= round.okCount) { logLine('turn_end: round failed-heavy, no celebrate'); apply('idle', 'failed-heavy'); return }
       if (!round.hasWork) { logLine('turn_end: no tool work, no celebrate'); apply('idle', 'no work'); return }
       if (t - st.lastCelebrationAt < CELEBRATE_COOLDOWN_MS) { logLine('turn_end: cooldown, skip'); apply('idle', 'cooldown'); return }
       st.lastCelebrationAt = t
@@ -292,16 +293,18 @@ export function createBridge(cfg) {
     }
     if (type === 'session_user_message' || type === 'agent_start') {
       round.hasWork = false
-      round.hasError = false
+      round.errCount = 0
+      round.okCount = 0
     }
     if (event && event.isError) {
       cancelPending()
-      round.hasError = true
+      round.errCount++
       apply('failed', 'isError')
       scheduleFailedFallback()
       return
     }
     if (type === 'tool_execution_start') round.hasWork = true
+    if (type === 'tool_execution_end') round.okCount++
     if (type === 'turn_end') {
       apply('idle', 'turn_end')
       // 兑底触发：agent_end 时有时无，turn_end 也启动静默窗口。
