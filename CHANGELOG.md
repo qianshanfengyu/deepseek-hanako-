@@ -1,7 +1,21 @@
 # 更新日志
 
+## 2.0.0 完整插件化（2026-08-16 深夜）
+
+- **架构升级**：从「独立 Electron + 桥接插件」两件套，改为单一 Hana 插件 `jiadaizi-pet`。插件内嵌桌宠本体（pet/electron）、素材（pet/assets）、事件桥接（pet-core.js）、skill（skills/）与 4 个工具（tools/）。
+- **一键安装**：放目录进 plugins 重启即用，随 Hana 启动自动拉起、退出自动回收（keepAlive 可保留常驻）。
+- **旧桥接退役**：`whale-pet-bridge` 已卸载，不再需要桌面快捷方式与 vbs 启动链，桌面 `deepseek娘.lnk` 已删除。
+- **配置页**：autoStart / port / keepAlive / electronDir 四项，全部在 Hana 设置页可视化调整。
+
+## 语音播报时机修复（2026-08-17 ・ agent_end 判定）
+
+- **根因**：Hana 运行中 `agent_end` 事件时有时无，上一版依赖 turn_end + 静默窗口判定，但工具间隙的 turn_end / turn_start 频繁交替，静默窗口被反复续期，完工播报时机不可靠。
+- **修复**：改为「对话彻底结束才播报」——庆祝入口收窄为 `agent_end` + 静默窗口确认（期间无新活动），本轮有工具工作且有错时不播；工具间隙的常规 turn 边界不再触发庆祝判定。
+- **干过活才响**：纯聊天轮次（本轮无 tool_execution）不撒花不播语音，只有真正干过活且无错的轮次才庆祝。
+
 ## 完工语音修复（2026-08-16 夜・turn_end 判定）
 
+- **（已被 2026-08-17 agent_end 方案取代，保留作历史）**
 - **根因**：Hana 运行中不再广播 `agent_end` 事件，桥接插件庆祝逻辑的唯一入口 agent_end 等不到信号，导致完工后既不撒花也不播语音。
 - **修复**：庆祝入口从 agent_end 改为 turn_end + 静默窗口判定。turn_end 先回待机，同时启动 2 秒静默确认，期间无新动作（turn_start / tool_execution_start 等）才算真正收工；轮内每个 turn 切换会自己取消，只有整轮收工才撒花 + 语音。
 - **双保险**：agent_end 时有时无，turn_end 加静默窗口不依赖单一事件，更抗造。

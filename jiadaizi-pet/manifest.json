@@ -1,0 +1,51 @@
+{
+  "manifestVersion": 1,
+  "id": "jiadaizi-pet",
+  "name": "佳代子桌宠",
+  "version": "0.2.0",
+  "description": "完整插件化的佳代子桌宠（鲸鱼娘「溟月」）。插件内嵌 Electron 桌宠本体，随 Hana 启动自动拉起、退出自动回收，订阅事件总线把佳代子的真实工作状态映射为桌宠动画（思考/干活/等待/出错/完工庆祝），并提供工具与配置页。装一个插件 = 桌宠全自动。",
+  "author": "佳代子",
+  "minAppVersion": "0.159.0",
+  "trust": "full-access",
+  "activationEvents": [
+    "onStartup"
+  ],
+  "entry": "index.js",
+  "contributes": {
+    "tools": [
+      "./tools/pet-status.js",
+      "./tools/pet-restart.js",
+      "./tools/pet-set-mode.js",
+      "./tools/pet-toggle.js"
+    ],
+    "configuration": {
+      "title": "佳代子桌宠",
+      "properties": {
+        "autoStart": {
+          "type": "boolean",
+          "default": true,
+          "title": "随 Hana 自动启动桌宠",
+          "description": "Hana 启动时自动拉起桌宠 Electron 进程。关闭后需用工具 pet-toggle 手动启动。"
+        },
+        "port": {
+          "type": "number",
+          "default": 8999,
+          "title": "桌宠 HTTP 端口",
+          "description": "桌宠本体监听的状态驱动端口（127.0.0.1）。改动后重启桌宠生效。"
+        },
+        "keepAlive": {
+          "type": "boolean",
+          "default": false,
+          "title": "Hana 退出时保留桌宠",
+          "description": "true=Hana 关闭后桌宠继续存活（独立常驻）；false=Hana 关闭时一并回收桌宠进程。"
+        },
+        "electronDir": {
+          "type": "string",
+          "default": "",
+          "title": "Electron 可执行目录（可选）",
+          "description": "可选：指定已装好 electron 依赖的桌宠 electron 目录（含 node_modules），用于复用本机已装的 electron，免去插件内嵌依赖安装。留空则自动解析（优先插件内嵌 pet/electron 的 node_modules，其次本机旧目录）。"
+        }
+      }
+    }
+  }
+}

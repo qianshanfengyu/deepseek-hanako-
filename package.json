@@ -1,13 +1,14 @@
 {
   "name": "deepseek-hanako-pet",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": false,
-  "description": "deepseek 娘桌宠（鲸鱼娘 · 溟月）—— 常驻 Windows 桌面右下角的 Electron 桌宠，随 AI 助手工作状态切换动画，任务完成时撒花并播报完工语音",
+  "description": "佳代子桌宠（鲸鱼娘 · 溟月）Hana 插件版 —— 完整插件化的 Electron 桌宠，随 Hana 启动自动拉起、退出自动回收，动画自动跟随 AI 助手真实工作状态，任务完成时撒花并播报完工语音",
   "keywords": [
     "deepseek",
     "electron",
     "desktop-pet",
-    "桌宠"
+    "桌宠",
+    "hana-plugin"
   ],
   "license": "MIT",
   "author": "qianshanfengyu",
@@ -16,10 +17,7 @@
     "url": "git+https://github.com/qianshanfengyu/deepseek-hanako-.git"
   },
   "files": [
-    "electron",
-    "assets",
-    "docs",
-    "hana-bridge",
-    "release"
+    "jiadaizi-pet",
+    "docs"
   ]
 }

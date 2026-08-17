@@ -2,11 +2,13 @@
 
 本项目的桌宠素材是一张 **9 个单帧动作** 的精灵图，动态全靠程序 CSS transform 实时变换，不是逐帧序列图。
 
+> 插件化后素材位于 `jiadaizi-pet/pet/assets/`，本契约中的文件路径均已按该位置更新。
+
 ## 图集规格
 
 | 项目 | 值 |
 | --- | --- |
-| 文件 | `assets/whale-spritesheet.png` |
+| 文件 | `jiadaizi-pet/pet/assets/whale-spritesheet.png` |
 | 格式 | PNG |
 | 单格 | `192 × 208` px |
 | 排布 | 9 个单帧动作，画布左侧一列 |
