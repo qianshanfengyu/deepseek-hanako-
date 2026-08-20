@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "jiadaizi-pet",
   "name": "佳代子桌宠",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "完整插件化的佳代子桌宠（鲸鱼娘「溟月」）。插件内嵌 Electron 桌宠本体，随 Hana 启动自动拉起、退出自动回收，订阅事件总线把佳代子的真实工作状态映射为桌宠动画（思考/干活/等待/出错/完工庆祝），并提供工具与配置页。装一个插件 = 桌宠全自动。",
   "author": "佳代子",
   "minAppVersion": "0.159.0",

@@ -25,6 +25,27 @@ const PORT = Number(process.env.PET_PORT) || 8999
 const TRAY_ICON_ABS = 'E:/AI/deepseek-whale-girl-icon/DeepSeekHarness-WhaleGirl.ico'
 const TRAY_ICON = fs.existsSync(TRAY_ICON_ABS) ? TRAY_ICON_ABS : path.join(ROOT, 'assets', 'whale-girl-ref.png')
 
+// 窗口位置记忆：拖放到哪就在哪，下次启动原样回来
+const POSITION_FILE = path.join(app.getPath('userData'), 'jiadaizi-position.json')
+const PEEK_BACK_MS = 60 * 1000  // 右键「去睡会儿」隐藏后自动回来的时长
+let peekTimer = null
+
+function loadPosition() {
+  try {
+    const p = JSON.parse(fs.readFileSync(POSITION_FILE, 'utf8'))
+    if (Number.isFinite(p.x) && Number.isFinite(p.y)) return { x: Math.round(p.x), y: Math.round(p.y) }
+  } catch { /* noop */ }
+  return null
+}
+function savePosition(x, y) {
+  try { fs.writeFileSync(POSITION_FILE, JSON.stringify({ x, y, t: Date.now() })) } catch { /* noop */ }
+}
+
+// 双形象：classic（女仆装单帧，默认）+ v2（蓝白裙多帧动画，8×9 Codex 契约）
+const SPRITE_V2_PATH = path.join(ROOT, 'assets', 'whale-v2.webp')
+const VALID_SKINS = ['classic', 'v2']
+let skin = 'classic'
+
 // ---------- 状态机 ----------
 const VALID_MODES = ['idle', 'working', 'review', 'waiting', 'failed', 'celebrating']
 const CELEBRATE_MS = 4800
@@ -119,6 +140,36 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // v2 多帧动画素材（蓝白裙鲸鱼娘，webp）
+  if (req.method === 'GET' && url === '/spritesheet-v2.webp') {
+    sendFile(res, SPRITE_V2_PATH, 'image/webp')
+    return
+  }
+
+  // 切换形象：classic（女仆装单帧）↔ v2（蓝白裙多帧）
+  if (req.method === 'POST' && url === '/jiadaizi-pet/set-skin') {
+    let body = ''
+    req.on('data', (c) => { body += c })
+    req.on('end', () => {
+      try {
+        const s = String(JSON.parse(body || '{}').skin || '')
+        if (VALID_SKINS.includes(s)) {
+          skin = s
+          if (win) { try { win.webContents.send('pet-skin', skin) } catch (e) { /* ignore */ } }
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, skin }))
+        } else {
+          res.writeHead(400, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: false, error: 'invalid skin' }))
+        }
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: 'bad json' }))
+      }
+    })
+    return
+  }
+
   if (req.method === 'GET' && url === '/voice-complete.wav') {
     sendFile(res, VOICE_COMPLETE_PATH, 'audio/wav')
     return
@@ -157,12 +208,20 @@ function createWindow() {
     },
   })
   win.setAlwaysOnTop(true, 'screen-saver')
-  // 定位到主屏右下角（留 20px 边距）
+  // 定位：优先记忆位置（跨屏/出屏时回退右下角）
   const { workArea } = screen.getPrimaryDisplay()
-  win.setPosition(
-    workArea.x + workArea.width - 200 - 20,
-    workArea.y + workArea.height - 300 - 20,
-  )
+  const saved = loadPosition()
+  const defX = workArea.x + workArea.width - 200 - 20
+  const defY = workArea.y + workArea.height - 300 - 20
+  const px = saved ? saved.x : defX
+  const py = saved ? saved.y : defY
+  // 简单出屏保护：位置须落在任一显示器 workArea 内
+  const onScreen = screen.getAllDisplays().some((d) => {
+    const wa = d.workArea
+    return px >= wa.x - 40 && px <= wa.x + wa.width - 40 && py >= wa.y - 40 && py <= wa.y + wa.height - 40
+  })
+  win.setPosition(px, py, false)
+  if (!onScreen) win.setPosition(defX, defY, false)
   win.loadURL(`http://127.0.0.1:${PORT}/`)
 }
 
@@ -171,6 +230,15 @@ function createTray() {
     tray = new Tray(TRAY_ICON)
     const menu = Menu.buildFromTemplate([
       { label: '显示 / 隐藏桌宠', click: () => { if (win) { if (win.isVisible()) win.hide(); else win.show() } } },
+      { type: 'separator' },
+      {
+        label: '切换形象：' + (skin === 'v2' ? '蓝白裙鲸鱼娘（多帧）' : '女仆装（单帧）'),
+        click: () => {
+          skin = skin === 'v2' ? 'classic' : 'v2'
+          if (win) { try { win.webContents.send('pet-skin', skin) } catch (e) { /* ignore */ } }
+          createTray()  // 刷新菜单文字
+        },
+      },
       { type: 'separator' },
       { label: '退出', click: () => { app.quit() } },
     ])
@@ -188,6 +256,43 @@ ipcMain.on('pet-move', (_event, { dx, dy }) => {
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) return
   const [x, y] = win.getPosition()
   win.setPosition(Math.round(x + dx), Math.round(y + dy))
+})
+
+// 拖动结束：记住落点（下次启动同样位置出现）
+ipcMain.on('pet-move-end', (_event, pos) => {
+  if (!win || !pos) return
+  const [x, y] = win.getPosition()
+  savePosition(x, y)
+})
+
+// 隐藏（「去睡会儿」）：先记住位置，隐藏一段时间后自动回到桌面
+ipcMain.on('pet-hide', (_event, ms) => {
+  if (!win) return
+  const [x, y] = win.getPosition()
+  savePosition(x, y)
+  win.hide()
+  clearTimeout(peekTimer)
+  peekTimer = setTimeout(() => {
+    if (win && !win.isVisible()) {
+      win.show()
+      try { win.webContents.send('pet-wake') } catch (e) { /* ignore */ }
+    }
+  }, Number.isFinite(ms) && ms > 0 ? ms : PEEK_BACK_MS)
+})
+
+// 立即唤回（右键菜单「醒醒啦」/ 托盘）
+ipcMain.on('pet-peek', () => {
+  if (!win) return
+  clearTimeout(peekTimer)
+  if (!win.isVisible()) {
+    win.show()
+    try { win.webContents.send('pet-wake') } catch (e) { /* ignore */ }
+  }
+})
+
+// 退出时顺手存好位置（兜底）
+app.on('before-quit', () => {
+  if (win) { const [x, y] = win.getPosition(); savePosition(x, y) }
 })
 
 app.whenReady().then(() => {
